@@ -1,0 +1,5 @@
+{
+  "name": "Lumina Nexus",
+  "description": "The ultimate multimodal AI companion powered by Gemini 3.1 Pro, Flash, and Veo.",
+  "requestFramePermissions": ["microphone"]
+}
