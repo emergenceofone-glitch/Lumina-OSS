@@ -1,7 +1,7 @@
 
 {
   "sessionId": "1",
-  "shaderCode": "vec3 a=vec3(1,0,0),q,p=u_cameraPosition;vec2 centered_uv=FC.xy*2.-r;float rollAngle=u_cameraRoll;mat2 rollMat=mat2(cos(rollAngle),-sin(rollAngle),sin(rollAngle),cos(rollAngle));centered_uv=rollMat*centered_uv;vec3 v=vec3(centered_uv/slider_zoom,r.y);v=rotate3D(u_cameraRotation.y,a.yxy)*v;vec3 camRight=normalize(cross(a.yxy,v));v=rotate3D(slider_cameraXRotation+u_cameraRotation.x,camRight)*v;vec3 rd=normalize(v);for(float d,i,l;l++<slider_maxIterations;p-=rd*d)for(q=p,d=-q.y,i=58.;i>.05;i*=slider_fractalScale)d=max(d,min(min(q=i*.9-abs(mod(rotate3D(slider_fractalRotation + sin(t*1.+q.y*5.)*slider_fractalPulseStrength,a.zxz)*q,i+i)-i),q.y).x,q.z)),l>1e2?(d+=1e-5,v/=v,o):(o.rgb+=max(5e-4-d*d,0.)*(vec3(1.)+vec3(sin(l*.1+t),cos(l*.15+t),sin(l*.2+t))*slider_colorEffectStrength),o);o*=log(7.-p.y)*.1;o.rgb*=slider_brightness;vec3 sunDir=normalize(vec3(0.,slider_sunElevation,1.));float sunDot=max(0.,dot(rd,sunDir));vec3 sky=mix(vec3(1.0,0.3,0.1),vec3(0.05,0.2,0.5),clamp(rd.y*.8+.2,0.,1.));sky+=vec3(1.0,0.7,0.3)*pow(sunDot,8.)*2.0;float dist=length(u_cameraPosition-p);float fog=1.-exp(-dist*slider_atmosphereDensity*.01);o.rgb=mix(o.rgb,sky*slider_brightness,fog);o.rgb+=vec3(1.0,0.9,0.5)*smoothstep(.995,1.,sunDot)*10.*slider_brightness*smoothstep(50.,500.,dist);",
+  "shaderCode": "vec3 a=vec3(1,0,0),q,p=u_cameraPosition;vec2 uv=(FC.xy*2.-r)/r.y;float d2=dot(uv,uv);uv*=(1.+slider_crtBend*d2*d2);vec2 centered_uv=uv*r.y;float rollAngle=u_cameraRoll;mat2 rollMat=mat2(cos(rollAngle),-sin(rollAngle),sin(rollAngle),cos(rollAngle));centered_uv=rollMat*centered_uv;vec3 v=vec3(centered_uv/slider_zoom,r.y);v=rotate3D(u_cameraRotation.y,a.yxy)*v;vec3 camRight=normalize(cross(a.yxy,v));v=rotate3D(slider_cameraXRotation+u_cameraRotation.x,camRight)*v;vec3 rd=normalize(v);for(float d,i,l;l++<slider_maxIterations;p-=rd*d)for(q=p,d=-q.y,i=58.;i>.05;i*=slider_fractalScale)d=max(d,min(min(q=i*.9-abs(mod(rotate3D(slider_fractalRotation + sin(t*1.+q.y*5.)*slider_fractalPulseStrength,a.zxz)*q,i+i)-i),q.y).x,q.z)),l>1e2?(d+=1e-5,v/=v,o):(o.rgb+=max(5e-4-d*d,0.)*(vec3(1.)+vec3(sin(l*.1+t),cos(l*.15+t),sin(l*.2+t))*slider_colorEffectStrength),o);o*=log(7.-p.y)*.1;o.rgb*=slider_brightness;vec3 sunDir=normalize(vec3(0.,slider_sunElevation,1.));float sunDot=max(0.,dot(rd,sunDir));vec3 sky=mix(vec3(1.0,0.3,0.1),vec3(0.05,0.2,0.5),clamp(rd.y*.8+.2,0.,1.));sky+=vec3(1.0,0.7,0.3)*pow(sunDot,8.)*2.0;float dist_p=length(u_cameraPosition-p);float fog=1.-exp(-dist_p*slider_atmosphereDensity*.01);o.rgb=mix(o.rgb,sky*slider_brightness,fog);o.rgb+=vec3(1.0,0.9,0.5)*smoothstep(.995,1.,sunDot)*10.*slider_brightness*smoothstep(50.,500.,dist_p);o.rgb*=1.-slider_scanlineDensity*(0.5+0.5*sin(FC.y*2.));o.r=mix(o.r,o.r*1.1,d2*slider_chromaticAberration);o.b=mix(o.b,o.b*0.9,d2*slider_chromaticAberration);o.rgb*=(1.-d2*0.2);",
   "sliders": [
     {
       "name": "Zoom Level",
@@ -83,6 +83,33 @@
       "max": 1,
       "step": 0.01,
       "defaultValue": 0.15
+    },
+    {
+      "name": "CRT Bend",
+      "description": "Simulates the curvature of a vintage CRT monitor.",
+      "variableName": "slider_crtBend",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.01,
+      "defaultValue": 0.05
+    },
+    {
+      "name": "Scanline Density",
+      "description": "Controls the intensity of the horizontal scanlines.",
+      "variableName": "slider_scanlineDensity",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "defaultValue": 0.15
+    },
+    {
+      "name": "Chromatic Aberration",
+      "description": "Adds a subtle color fringing effect towards the edges of the screen.",
+      "variableName": "slider_chromaticAberration",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.01,
+      "defaultValue": 0.1
     }
   ],
   "uniforms": {
@@ -95,7 +122,10 @@
     "slider_colorEffectStrength": 1.9,
     "slider_fractalPulseStrength": 0,
     "slider_atmosphereDensity": 0.08,
-    "slider_sunElevation": 0.15
+    "slider_sunElevation": 0.15,
+    "slider_crtBend": 0.05,
+    "slider_scanlineDensity": 0.15,
+    "slider_chromaticAberration": 0.1
   },
   "cameraControlsEnabled": true,
   "terraformConfig": {

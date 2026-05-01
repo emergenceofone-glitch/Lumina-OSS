@@ -1,5 +1,5 @@
 {
-  "name": "Lumina Nexus",
-  "description": "The ultimate multimodal AI companion powered by Gemini 3.1 Pro, Flash, and Veo.",
-  "requestFramePermissions": ["microphone"]
+  "name": "Shader Pilot",
+  "description": "A retro-scifi GLSL exploration ship. Travel through procedurally generated 3D fractal worlds with heavy analog aesthetics, scanlines, and vangelis-style synth soundtracks.",
+  "requestFramePermissions": []
 }

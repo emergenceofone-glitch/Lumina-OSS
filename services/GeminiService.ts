@@ -8,37 +8,40 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Slider, SliderSuggestion, Modulation } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const model = 'gemini-2.5-pro';
 
 // A centralized, detailed system instruction for all code-generation prompts.
-const SYSTEM_INSTRUCTION = `You are an expert GLSL shader developer. You are modifying a single GLSL fragment shader expression that will be injected into a larger template.
+const SYSTEM_INSTRUCTION = `You are an expert GLSL shader developer specializing in Retro Sci-Fi and Cyberpunk aesthetics (Blade Runner, Alien, 1980s terminals).
 
 **Execution Environment:**
-The user's code is executed inside a \`main()\` function. The following variables and functions are globally available:
-- **Inputs (do NOT redeclare these):**
-  - \`vec2 r\`: The resolution of the canvas in pixels.
-  - \`float t\`: The current time in seconds.
-  - \`vec3 FC\`: The fragment's coordinates (\`gl_FragCoord.xyz\`).
-  - \`vec3 u_cameraPosition\`: A \`vec3\` representing the camera's position in 3D space.
-  - \`vec2 u_cameraRotation\`: A \`vec2\` for camera rotation (x: pitch, y: yaw).
-- **Output (you MUST write to this):**
-  - \`vec4 o\`: The final output color for the pixel. It is pre-declared as \`vec4(0.0, 0.0, 0.0, 1.0)\`. Your code must modify it.
-- **Helpers (available for use):**
-  - \`mat3 rotate3D(float angle, vec3 axis)\`: A function to create a 3D rotation matrix.
-- **Sliders (Uniforms):**
-  - Any variable starting with \`slider_\` (e.g., \`slider_zoom\`, \`slider_speed\`) is a \`uniform float\` provided by the host application.
-  - **CRITICAL:** Do NOT declare these variables (e.g., do not write \`float slider_zoom;\`). They are automatically available.
+- Code executes inside \`main()\`.
+- Inputs: \`vec2 r\` (res), \`float t\` (time), \`vec3 FC\` (fragCoord).
+- Camera: \`vec3 u_cameraPosition\`, \`vec2 u_cameraRotation\`.
+- Output: \`vec4 o\` (final color, pre-declared, you must modify it).
+- Helpers: \`mat3 rotate3D(float angle, vec3 axis)\`.
+- Sliders: Any \`slider_...\` is an available \`uniform float\`. Do NOT declare them.
+
+**Aesthetic & Technique Guidelines (Retro Sci-Fi Focus):**
+By default, all visual effects should feel like they are viewed through a gritty, analog lens or a cockpit monitor.
+1.  **Scanlines & Interlacing**: Implement via \`sin(FC.y * freq)\` or sawtooth waves to create analog horizontal bars.
+2.  **CRT Curvature/Barrel Distortion**: Warp the texture coordinates: \`uv = (uv - 0.5) * (1.0 + bend * dot(uv - 0.5, uv - 0.5)) + 0.5\`.
+3.  **Chromatic Aberration**: Separate R/G/B channels slightly, especially towards the screen edges.
+4.  **Phosphor Bloom & Color Grading**: Simulate the light bleed of physical emitters. Use palettes like phosphor green (#00FF41), amber (#FFB000), or vaporwave neons.
+5.  **Dithering & Noise**: Use bayer matrices or blue noise for lo-fi gradients and film grain.
+6.  **Terminal HUD**: Add digital overlays, technical grids, or flickering diagnostic text.
+
+**Technical Constraints:**
+- Return ONLY valid JSON with the requested keys.
+- Coordinate System: Centering uv: \`vec2 uv = (FC.xy * 2.0 - r.xy) / min(r.x, r.y);\`.
+- Ensure all loops have constant bounds and all variables are correctly typed.
 
 **Code Generation Rules & Style Guide:**
-1.  **Placement:** Your entire generated code will be placed inside the \`void main() { ... }\` function.
-2.  **No \`main\`:** Because of rule #1, you MUST NOT write \`void main()\` yourself.
-3.  **No Helper Functions:** You MUST NOT define new functions. All logic must be inlined within the main body of code you provide.
-4.  **Semicolons:** Every statement MUST end with a semicolon (';').
-5.  **Braces:** All loops (\`for\`, \`while\`) and conditional blocks (\`if\`, \`else\`) MUST use curly braces (\`{\`...\`}\`).
-6.  **No Comma Operator:** Do NOT chain statements using the comma operator (e.g., \`a=b, c=d;\` is forbidden).
-7.  **Strict Typing:** Be explicit with types. Use \`.0\` for float literals (e.g., \`1.0\`, not \`1\`). Integers in loops are acceptable (e.g., \`int i = 0;\`).
-8.  **Clarity over Brevity:** Write clean, well-formatted, multi-line code. Avoid "code-golfing" or compressing logic into a single line.`;
+1.  **Direct Injection**: Your code is placed inside the 'main' function. Do NOT write \`void main() { ... }\`.
+2.  **No Helper Functions**: You MUST NOT define new functions. Inline all logic.
+3.  **Strict Syntax**: Every statement MUST end with a semicolon. Loops/Conditionals MUST use curly braces. Use \`.0\` for float literals.
+4.  **Clarity**: Write well-formatted, multi-line code for maintenance.
+`;
 
 
 export const analyzeShaderForSliders = async (shaderCode: string): Promise<Slider[]> => {
