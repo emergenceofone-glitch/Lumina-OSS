@@ -211,6 +211,16 @@ void main() {
         float totalGlow = finalSustainedGlow + pulseGlow;
         col += vec3(1.0, 0.4, 0.05) * engineMask * totalGlow;
 
+        // --- Exhaust Particles (Overlay) ---
+        for(float i=0.0; i<8.0; i++) {
+            float pTime = u_time * (2.0 + u_thrust * 5.0) + i * 1.5;
+            float pZ = 1.2 + fract(pTime * 0.2) * 2.0;
+            vec3 pPos = vec3(0.5 * (i > 3.0 ? 1.0 : -1.0), sin(i * 10.0) * 0.1, pZ);
+            float pDist = length(localP - pPos);
+            float pSize = 0.05 / pZ;
+            col += vec3(1.0, 0.5, 0.2) * smoothstep(pSize, 0.0, pDist) * (0.2 + u_thrust) * exp(-(pZ-1.2)*2.0);
+        }
+
         // Flap Glow - asymmetric for turning
         float leftBrakeAmount = u_brake + max(0.0, u_yaw_velocity * 2.5); // Turn right, left brake lights up
         float rightBrakeAmount = u_brake + max(0.0, -u_yaw_velocity * 2.5); // Turn left, right brake lights up

@@ -5,6 +5,7 @@
 
 
 import React, { useRef, useEffect, MutableRefObject } from 'react';
+import { useAppContext } from '../context/AppContext';
 import { CameraData } from '../types';
 
 interface ShaderCanvasProps {
@@ -59,7 +60,19 @@ const createProgram = (gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLSha
 };
 
 
-export const ShaderCanvas: React.FC<ShaderCanvasProps> = React.memo(({ fragmentSrc, onError, uniforms, cameraRef, isHdEnabled, isFpsEnabled, isPlaying, shouldReduceQuality }) => {
+export const ShaderCanvas: React.FC = React.memo(() => {
+  const { 
+    activeShaderCode: fragmentSrc, 
+    handleShaderError: onError, 
+    uniforms, 
+    cameraRef, 
+    isHdEnabled, 
+    isFpsEnabled, 
+    isPlaying, 
+    shouldReduceQuality,
+    audioInputsRef
+  } = useAppContext();
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fpsRef = useRef<HTMLDivElement>(null);
   
@@ -112,6 +125,9 @@ export const ShaderCanvas: React.FC<ShaderCanvasProps> = React.memo(({ fragmentS
       uniform vec3 u_cameraPosition;
       uniform vec2 u_cameraRotation;
       uniform float u_cameraRoll;
+      uniform float u_speed;
+      uniform float u_turning;
+      uniform float u_acceleration;
       ${generateUniformDeclarations(uniformsRef.current)}
       out vec4 outColor;
 
@@ -163,6 +179,9 @@ export const ShaderCanvas: React.FC<ShaderCanvasProps> = React.memo(({ fragmentS
     const cameraPosLocation = gl.getUniformLocation(program, 'u_cameraPosition');
     const cameraRotLocation = gl.getUniformLocation(program, 'u_cameraRotation');
     const cameraRollLocation = gl.getUniformLocation(program, 'u_cameraRoll');
+    const speedLocation = gl.getUniformLocation(program, 'u_speed');
+    const turningLocation = gl.getUniformLocation(program, 'u_turning');
+    const accelLocation = gl.getUniformLocation(program, 'u_acceleration');
     
     const uniformLocations: { [key: string]: WebGLUniformLocation | null } = {};
     for (const uniformName of Object.keys(uniformsRef.current)) {
@@ -219,6 +238,14 @@ export const ShaderCanvas: React.FC<ShaderCanvasProps> = React.memo(({ fragmentS
           gl.uniform3fv(cameraPosLocation, cameraRef.current.position);
           gl.uniform2fv(cameraRotLocation, cameraRef.current.rotation);
           gl.uniform1f(cameraRollLocation, cameraRef.current.roll);
+      }
+      
+      // Additional physics uniforms
+      if (audioInputsRef && audioInputsRef.current) {
+          const inputs = audioInputsRef.current;
+          gl.uniform1f(speedLocation, inputs.speed);
+          gl.uniform1f(turningLocation, inputs.turning);
+          gl.uniform1f(accelLocation, inputs.acceleration);
       }
 
       // Slider uniforms
