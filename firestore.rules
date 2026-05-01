@@ -3,106 +3,71 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ===============================================================
-    // Assumed Data Model
+    // Global Deny
     // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - uid: string (required, immutable)
-    //   - email: string (optional)
-    //   - displayName: string (optional)
-    //   - createdAt: number (required, immutable)
-    //
-    // Collection: users/{userId}/messages
-    // Document ID: {messageId}
-    // Fields:
-    //   - uid: string (required, immutable)
-    //   - role: string (required, 'user' or 'ai')
-    //   - text: string (required, max length 10000)
-    //   - timestamp: number (required, immutable)
-    //
-    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isDocOwner() {
-      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function uidUnchanged() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
     }
 
-    function uidNotModified() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
-    }
-
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    function validStringLength(field, minLen, maxLen) {
-      return request.resource.data[field] is string &&
-             request.resource.data[field].size() >= minLen &&
-             request.resource.data[field].size() <= maxLen;
-    }
-
-    function areImmutableFieldsUnchanged(fields) {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
     // ===============================================================
     // Domain Validators
     // ===============================================================
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'createdAt']) &&
-             data.uid is string && data.uid.size() > 0 && data.uid.size() < 128 &&
+      return hasOnlyAllowedFields(data, ['uid', 'email', 'displayName', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.uid is string && data.uid.size() > 0 &&
              (!('email' in data) || (data.email is string && data.email.size() < 256)) &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 128)) &&
              data.createdAt is number;
     }
 
     function isValidMessage(data) {
-      return hasOnlyAllowedFields(['uid', 'role', 'text', 'timestamp']) &&
-             data.uid is string && data.uid.size() > 0 && data.uid.size() < 128 &&
+      return hasOnlyAllowedFields(data, ['uid', 'role', 'text', 'timestamp', 'media', 'hasFiles']) &&
+             data.uid == request.auth.uid &&
+             data.uid is string &&
              data.role in ['user', 'ai'] &&
-             data.text is string && data.text.size() <= 10000 &&
-             data.timestamp is number;
+             data.text is string && data.text.size() <= 20000 &&
+             data.timestamp is number &&
+             (!('media' in data) || (data.media == null || (data.media is string && data.media.size() < 2000000))) &&
+             (!('hasFiles' in data) || data.hasFiles is bool);
     }
 
     // ===============================================================
-    // Rules
+    // Collection Rules
     // ===============================================================
-    
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged();
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() && areImmutableFieldsUnchanged(['createdAt']);
-      allow delete: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                     request.resource.data.createdAt == resource.data.createdAt;
       
       match /messages/{messageId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidMessage(request.resource.data) && uidUnchanged();
-        allow update: if isOwner(userId) && isValidMessage(request.resource.data) && uidNotModified() && areImmutableFieldsUnchanged(['timestamp', 'role']);
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMessage(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }
