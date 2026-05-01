@@ -1,0 +1,184 @@
+```react
+import React, { useState, useEffect } from 'react';
+import { 
+  Home, Activity, Zap, Shield, Cpu, 
+  Droplets, Thermometer, Music, 
+  RotateCw, Lock, AlertTriangle 
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+
+// --- AETHERIUM NEXUS CORE CONFIG ---
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'aetherium-nexus-v1';
+
+/**
+ * H.E.N.S. Protocol (Human Emotional Navigation System)
+ * Throttles state changes to 90 seconds to match human chemical reset.
+ */
+const HENS_COOLDOWN = 90000; 
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [nexusState, setNexusState] = useState(null);
+  const [cooldown, setCooldown] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // 1. Initial Auth & H.E.N.S. Initialization
+  useEffect(() => {
+    const init = async () => {
+      await signInAnonymously(auth);
+    };
+    init();
+    const unsub = onAuthStateChanged(auth, setUser);
+    return () => unsub();
+  }, []);
+
+  // 2. Real-time Nexus Sync
+  useEffect(() => {
+    if (!user) return;
+    
+    const nexusRef = doc(db, 'artifacts', appId, 'public', 'nexus_core');
+    const unsub = onSnapshot(nexusRef, (snap) => {
+      if (snap.exists()) {
+        setNexusState(snap.data());
+      } else {
+        // Initialize Default Topology if missing
+        setDoc(nexusRef, {
+          topology: '360/n Radial',
+          node_01_status: 'ONLINE',
+          node_02_status: 'SATELLITE',
+          last_hens_update: serverTimestamp(),
+          environment: { temp: 22, humidity: 45, mood: 'CALM' }
+        });
+      }
+      setLoading(false);
+    }, (err) => console.error("Nexus Sync Error:", err));
+
+    return () => unsub();
+  }, [user]);
+
+  // 3. H.E.N.S. Timer Logic
+  useEffect(() => {
+    if (!nexusState?.last_hens_update) return;
+    
+    const interval = setInterval(() => {
+      const lastUpdate = nexusState.last_hens_update.toDate().getTime();
+      const now = Date.now();
+      const diff = now - lastUpdate;
+      setCooldown(Math.max(0, Math.round((HENS_COOLDOWN - diff) / 1000)));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [nexusState]);
+
+  const updateEnvironment = async (newMood) => {
+    if (cooldown > 0) return; // H.E.N.S. Lockout
+    if (!user) return;
+
+    const nexusRef = doc(db, 'artifacts', appId, 'public', 'nexus_core');
+    await updateDoc(nexusRef, {
+      'environment.mood': newMood,
+      last_hens_update: serverTimestamp()
+    });
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-black flex items-center justify-center font-mono text-cyan-500">
+      <RotateCw className="animate-spin mr-2" /> INITIALIZING LATTICE...
+    </div>
+  );
+
+  return (
+    <div className={`min-h-screen transition-colors duration-1000 ${nexusState?.environment?.mood === 'CALM' ? 'bg-[#050505]' : 'bg-[#0a0510]'} text-slate-100 p-6 flex flex-col font-sans`}>
+      
+      {/* Topology Header */}
+      <header className="flex justify-between items-start mb-8">
+        <div className="space-y-1">
+          <h1 className="text-xl font-black tracking-tighter flex items-center gap-2">
+            <Cpu size={20} className="text-cyan-400" /> AETHERIUM NEXUS
+          </h1>
+          <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest">
+            Protocol: 360/n Radial // UID: {user?.uid.substring(0,8)}
+          </p>
+        </div>
+        
+        {/* H.E.N.S. Status Indicator */}
+        <div className={`px-4 py-2 rounded-full border flex items-center gap-2 transition-all ${cooldown > 0 ? 'border-amber-500/50 bg-amber-500/10 text-amber-500' : 'border-emerald-500/50 bg-emerald-500/10 text-emerald-500'}`}>
+          {cooldown > 0 ? <Lock size={12} /> : <Shield size={12} />}
+          <span className="text-[10px] font-black uppercase tracking-tighter">
+            {cooldown > 0 ? `H.E.N.S. Lock: ${cooldown}s` : 'System Ready'}
+          </span>
+        </div>
+      </header>
+
+      {/* Environmental Grid */}
+      <main className="flex-1 space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white/5 border border-white/10 p-6 rounded-3xl flex flex-col items-center justify-center space-y-2">
+            <Thermometer className="text-cyan-400" />
+            <p className="text-3xl font-light">{nexusState?.environment?.temp}°</p>
+            <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest">Ambient Temp</p>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-6 rounded-3xl flex flex-col items-center justify-center space-y-2">
+            <Droplets className="text-blue-400" />
+            <p className="text-3xl font-light">{nexusState?.environment?.humidity}%</p>
+            <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest">Humidity</p>
+          </div>
+        </div>
+
+        {/* Radial Control (Mood Selector) */}
+        <section className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] space-y-6 text-center">
+          <div className="space-y-1">
+            <h2 className="text-xs font-black uppercase tracking-widest opacity-60">Environment Modulation</h2>
+            <p className="text-[10px] font-mono opacity-40">Modulating mood triggers a 90s chemical reset.</p>
+          </div>
+
+          <div className="flex justify-center gap-4">
+            {['CALM', 'RESTORATIVE', 'FOCUS'].map((m) => (
+              <button
+                key={m}
+                disabled={cooldown > 0}
+                onClick={() => updateEnvironment(m)}
+                className={`w-24 h-24 rounded-full border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                  nexusState?.environment?.mood === m 
+                  ? 'border-cyan-500 bg-cyan-500/20 text-white' 
+                  : 'border-white/10 bg-white/5 text-white/40 hover:border-white/20'
+                } ${cooldown > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Zap size={16} />
+                <span className="text-[9px] font-bold tracking-tighter">{m}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Node Connectivity Status */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-black opacity-30 uppercase tracking-[0.3em]">Hardware Lattice</h3>
+          <div className="bg-black/40 border border-white/5 rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${nexusState?.node_01_status === 'ONLINE' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
+              <span className="text-xs font-medium">Node 01: MacBook Pro (MBP_A1990)</span>
+            </div>
+            <span className="text-[9px] font-mono opacity-40 uppercase tracking-tighter">Win11_Engine</span>
+          </div>
+        </div>
+      </main>
+
+      <footer className="mt-8 flex justify-center">
+        <div className="px-6 py-3 bg-white/5 rounded-full border border-white/10 backdrop-blur-xl">
+           <p className="text-[9px] font-mono opacity-40 tracking-[0.5em] uppercase">
+             Aetherium Signal Chain Verified
+           </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+```
